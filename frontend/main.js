@@ -218,13 +218,14 @@ function resizeHud() {
     hudCanvas.height = window.innerHeight;
 }
 
-// Replace with your Render app's URL when deployed (e.g., 'eth-telemetry.onrender.com')
-const RENDER_BACKEND_HOST = 'your-backend-app.onrender.com';
-
 function connectWS() {
     const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    
+    // Use Vite's import.meta.env for production, fallback to localhost for dev
+    const RENDER_HOST = import.meta.env.VITE_RENDER_BACKEND_HOST || 'your-backend-app.onrender.com';
+    
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = isLocal ? `ws://${location.hostname}:3000` : `${protocol}//${RENDER_BACKEND_HOST}`;
+    const wsUrl = isLocal ? `ws://${location.hostname}:3000` : `${protocol}//${RENDER_HOST}`;
     
     const socket = new WebSocket(wsUrl);
     socket.onmessage = (event) => {
