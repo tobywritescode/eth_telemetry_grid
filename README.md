@@ -2,19 +2,17 @@
 
 A high-fidelity, retro-militaristic telemetry dashboard for the Ethereum Network. This tool provides a real-time "command center" view of global RPC latency, block propagation, and network volatility.
 
-![TELEMETRY_GRID](debug.png)
-
-## 📡 The Mission
+## //The Mission
 The **TELEMETRY_GRID** is designed for node operators and network enthusiasts who require a low-latency, high-contrast visualization of Ethereum's global health. It transforms raw JSON-RPC data into a 3D tactical interface, complete with a custom CRT shader aesthetic.
 
-## 🛠️ Features
+## //Features
 - **Global Sensor Network:** Monitors 9 unique regional RPC sensors (London, NY, Singapore, Tokyo, San Francisco, Frankfurt, Sydney, Sao Paulo, Toronto).
 - **Spectral Density Monitor:** A 64-bar real-time frequency analyzer modulated by network congestion and base-fee volatility.
 - **Tactical HUD:** Interactive documentation keys with hover-activated pencil-thin arrow pointers and tooltips.
 - **3D Regional Deep-Dive:** Raycasted 3D nodes that provide detailed regional telemetry (latency, GWEI) upon hover.
 - **CRT Post-Processing:** Hand-written GLSL shaders for barrel distortion, chromatic aberration, scanline simulation, and Gaussian noise.
 
-## 🏗️ Technical Architecture
+## //Technical Architecture
 
 ### **Backend (Node.js)**
 The "Engine" of the project. It runs a high-frequency asynchronous probe that polls global RPC entry points every 200ms. 
@@ -26,7 +24,7 @@ The "Dashboard" is a high-performance WebGL application.
 - **Dual-Scene Pipeline:** Combines a 3D Perspective world map with a 2D Orthographic HUD.
 - **Vite Build Setup:** Optimized for modern CI/CD pipelines (Vercel) with support for environment variable injection.
 
-## 🚀 Deployment Guide
+## //Deployment Guide
 
 ### **1. Prerequisites**
 You **MUST** have your own Ethereum RPC URL. We recommend a free **Alchemy** or **Infura** account.
@@ -64,7 +62,7 @@ You **MUST** have your own Ethereum RPC URL. We recommend a free **Alchemy** or 
 - **Output Directory:** `dist`
 - **Environment Variables:** Add `VITE_RENDER_BACKEND_HOST` set to your Render domain (e.g., `eth-telemetry.onrender.com`).
 
-## ⚖️ Configuration
+## //Configuration
 Tuning the aesthetic can be done in `frontend/main.js` via the `CONFIG` object:
 ```javascript
 const CONFIG = {
