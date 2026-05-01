@@ -110,7 +110,7 @@ async function init() {
     initEventListeners();
     
     await loadWorldMap();
-    connectWS();
+    startPolling();
     animate();
 }
 
@@ -218,23 +218,79 @@ function resizeHud() {
     hudCanvas.height = window.innerHeight;
 }
 
-function connectWS() {
-    const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-    
-    // Use Vite's import.meta.env for production, fallback to localhost for dev
-    const RENDER_HOST = import.meta.env.VITE_RENDER_BACKEND_HOST || 'your-backend-app.onrender.com';
-    
-    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = isLocal ? `ws://${location.hostname}:3000` : `${protocol}//${RENDER_HOST}`;
-    
-    const socket = new WebSocket(wsUrl);
-    socket.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        updateNodes(data.nodes);
-        heartbeat = data.heartbeat;
-        globalData = data.global;
+const REGIONAL_RPCS = [
+    { id: 'LDN-RPC-01', url: 'https://eth.drpc.org',                    lat: 51.5074,  lon: -0.1278   },
+    { id: 'NYC-RPC-02', url: 'https://eth.llamarpc.com',                 lat: 40.7128,  lon: -74.0060  },
+    { id: 'SIN-RPC-03', url: 'https://1rpc.io/eth',                      lat: 1.3521,   lon: 103.8198  },
+    { id: 'TYO-RPC-04', url: 'https://ethereum.publicnode.com',          lat: 35.6895,  lon: 139.6917  },
+    { id: 'SFO-RPC-05', url: 'https://rpc.flashbots.net',                lat: 37.7749,  lon: -122.4194 },
+    { id: 'FRA-RPC-06', url: 'https://eth-mainnet.public.blastapi.io',   lat: 50.1109,  lon: 8.6821    },
+    { id: 'SYD-RPC-10', url: 'https://cloudflare-eth.com',               lat: -33.8688, lon: 151.2093  },
+    { id: 'GRU-RPC-08', url: 'https://eth.llamarpc.com',                 lat: -23.5505, lon: -46.6333  },
+    { id: 'TOR-RPC-07', url: 'https://eth.drpc.org',                     lat: 45.6532,  lon: -82.3832  },
+];
+
+let lastBlockHash = null;
+let lastBlockTime = Date.now();
+let lastBlockBaseFee = 0;
+let blockVolatility = 0;
+
+async function pollNode(node) {
+    const start = performance.now();
+    try {
+        const res = await fetch(node.url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_getBlockByNumber', params: ['latest', false], id: 1 }),
+            signal: AbortSignal.timeout(4000)
+        });
+        if (!res.ok) return null;
+        const data = await res.json();
+        const result = data.result;
+        if (!result) return null;
+        const latency = performance.now() - start;
+        const gwei = parseInt(result.baseFeePerGas, 16) / 1e9;
+        return { id: node.id, lat: node.lat, lon: node.lon, latency, gwei: Math.round(gwei * 10) / 10, hash: result.hash };
+    } catch (e) {
+        return null;
+    }
+}
+
+function computeHeartbeat(nodesData) {
+    const avgLat = nodesData.length > 0 ? nodesData.reduce((a, b) => a + b.latency, 0) / nodesData.length : 0;
+    const t = Date.now() / 1000;
+    return Array.from({ length: 64 }, (_, i) => {
+        const freq = 1.0 + (i / 64) * 5.0;
+        const phase = i * (Math.PI / 32);
+        const noise = Math.sin(t * freq + phase) * 0.4 + Math.sin(t * (freq * 0.5) + phase) * 0.6;
+        const activity = 0.2 + avgLat / 400 + blockVolatility * 1.2;
+        return Math.max(0.05, Math.min(1.0, Math.abs(noise * activity)));
+    });
+}
+
+async function poll() {
+    const results = await Promise.all(REGIONAL_RPCS.map(n => pollNode(n)));
+    const nodesData = results.filter(Boolean);
+
+    const latest = nodesData.find(n => n.hash);
+    if (latest && latest.hash !== lastBlockHash) {
+        if (lastBlockBaseFee > 0) blockVolatility = Math.abs(latest.gwei - lastBlockBaseFee);
+        lastBlockHash = latest.hash;
+        lastBlockTime = Date.now();
+        lastBlockBaseFee = latest.gwei;
+    }
+
+    heartbeat = computeHeartbeat(nodesData);
+    updateNodes(nodesData);
+    globalData = {
+        timeSinceBlock: (Date.now() - lastBlockTime) / 1000,
+        avgGwei: nodesData.length > 0 ? nodesData.reduce((a, b) => a + b.gwei, 0) / nodesData.length : 0
     };
-    socket.onclose = () => setTimeout(connectWS, 2000);
+}
+
+function startPolling() {
+    poll();
+    setInterval(poll, 5000);
 }
 
 function updateNodes(nodeData) {
